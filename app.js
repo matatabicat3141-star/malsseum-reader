@@ -27,7 +27,7 @@ function buildToc(){
   const el=$('#tocList');
   let html='<a href="#top" data-jump="9">巻頭（表紙・まえがき・目次）</a>';
   for(const l of DATA.lectures){
-    html+='<a href="#lec'+l.no+'-p'+l.page+'" data-jump="'+l.page+'">第'+l.no+'講 '+esc(l.title)+' <span class="pg">p.'+l.page+'</span></a>';
+    html+='<a href="#lec'+l.no+'-p'+l.page+'" data-jump="'+l.page+'">第'+l.no+'講 '+esc(l.title)+(l.koTitle?' <span class="ko-title">'+esc(l.koTitle)+'</span>':'')+' <span class="pg">p.'+l.page+'</span></a>';
   }
   el.innerHTML=html;
   el.querySelectorAll('a').forEach(a=>a.addEventListener('click',e=>{
@@ -44,7 +44,7 @@ function render(){
   const lecMap={}; DATA.lectures.forEach(l=>lecMap[l.page]=l);
   let html='';
   for(const pg of DATA.pages){
-    if(lecMap[pg.p]) html+='<h2 class="lec-title" id="lec'+lecMap[pg.p].no+'">第'+lecMap[pg.p].no+'講　'+esc(lecMap[pg.p].title)+'</h2>';
+    if(lecMap[pg.p]) html+='<h2 class="lec-title" id="lec'+lecMap[pg.p].no+'">第'+lecMap[pg.p].no+'講　'+esc(lecMap[pg.p].title)+(lecMap[pg.p].koTitle?'<span class="ko-title">'+esc(lecMap[pg.p].koTitle)+'</span>':'')+'</h2>';
     html+='<div class="pagemark" id="p'+pg.p+'" data-page="'+pg.p+'"><span>p.'+pg.p+'</span>'+
       '<button data-report="'+pg.p+'">誤りを報告</button>'+
       '<button data-pagememo="'+pg.p+'">メモ</button></div>';

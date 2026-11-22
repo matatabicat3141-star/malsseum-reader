@@ -45,6 +45,9 @@ h2.lec-title{font-size:1.3rem;margin:1.6em 0 .6em;padding-bottom:.3em;border-bot
 p.para{margin:.9em 0;text-align:justify}
 p.para.ko{color:#4a4238}
 body.hide-ko .para.ko,body.hide-ja .para.ja{display:none}
+h2.lec-title .ko-title{display:block;font-size:.95rem;color:#4a4238;margin-top:.25em}
+nav.toc a .ko-title{display:block;font-size:.78rem;color:var(--muted)}
+body.hide-ko .ko-title{display:none}
 .note{display:none;background:var(--accent-soft);border-radius:8px;padding:8px 12px;font-size:.82rem;line-height:1.7;margin:.6em 0 1em;color:#5c4c30}
 body.show-notes .note{display:block}
 mark{background:var(--mark);padding:0 .05em;border-radius:2px}
