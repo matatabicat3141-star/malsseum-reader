@@ -13,6 +13,15 @@ function loadAnnos(){ try{return JSON.parse(localStorage.getItem(LS_KEY))||[]}ca
 function saveAnnos(a){ localStorage.setItem(LS_KEY, JSON.stringify(a)); }
 let annos=loadAnnos();
 
+/* ---------- bookmarks & last-read (localStorage, all volumes) ---------- */
+const BM_KEY='malsseum_bookmarks';
+const LR_KEY='malsseum_last_read';
+function loadBookmarks(){ try{return JSON.parse(localStorage.getItem(BM_KEY))||[]}catch(e){return[]} }
+function saveBookmarks(a){ try{localStorage.setItem(BM_KEY, JSON.stringify(a));}catch(e){} }
+let bookmarks=loadBookmarks();
+function loadLastRead(){ try{return JSON.parse(localStorage.getItem(LR_KEY))||null}catch(e){return null} }
+function saveLastRead(p){ try{localStorage.setItem(LR_KEY, JSON.stringify(p));}catch(e){} }
+
 /* ---------- data ---------- */
 fetch('data/vol'+String(VOL).padStart(3,'0')+'.json').then(r=>r.json()).then(d=>{
   DATA=d;
@@ -20,7 +29,7 @@ fetch('data/vol'+String(VOL).padStart(3,'0')+'.json').then(r=>r.json()).then(d=>
   $('#volTitle').textContent='文鮮明先生御言選集 第'+VOL+'巻';
   let cur=null;
   for(const pg of d.pages){ if(pg.lec) cur=pg.lec; lecOfPage[pg.p]=cur; }
-  buildToc(); render(); applyAnnos(); jumpFromHash();
+  buildToc(); render(); applyAnnos(); jumpFromHash(); refreshResumeBtn(); maybeShowResumeBanner();
 }).catch(()=>{ main.innerHTML='<p>データの読み込みに失敗しました。</p>'; });
 
 function buildToc(){
@@ -47,6 +56,7 @@ function render(){
     if(lecMap[pg.p]) html+='<h2 class="lec-title" id="lec'+lecMap[pg.p].no+'">第'+lecMap[pg.p].no+'講　'+esc(lecMap[pg.p].title)+(lecMap[pg.p].koTitle?'<span class="ko-title">'+esc(lecMap[pg.p].koTitle)+'</span>':'')+'</h2>';
     html+='<div class="pagemark" id="p'+pg.p+'" data-page="'+pg.p+'"><span>p.'+pg.p+'</span>'+
       '<button data-report="'+pg.p+'">誤りを報告</button>'+
+      '<button data-bookmark="'+pg.p+'">栞を挟む</button>'+
       '<button data-pagememo="'+pg.p+'">メモ</button></div>';
     const n=Math.max(pg.ja.length, pg.ko.length);
     for(let i=0;i<n;i++){
@@ -59,6 +69,8 @@ function render(){
   main.innerHTML=html;
   main.querySelectorAll('[data-report]').forEach(b=>b.addEventListener('click',()=>openReport(+b.dataset.report,'')));
   main.querySelectorAll('[data-pagememo]').forEach(b=>b.addEventListener('click',()=>openMemoEditor({page:+b.dataset.pagememo,pageMemo:true})));
+  main.querySelectorAll('[data-bookmark]').forEach(b=>b.addEventListener('click',()=>toggleBookmark(+b.dataset.bookmark)));
+  renderBookmarkStates();
   renderPageMemos();
 }
 
@@ -90,6 +102,13 @@ $('#fsSeg').addEventListener('click',e=>{
   main.className=b.dataset.fs;
 });
 $('#reportBtn').addEventListener('click',()=>window.open(FORM_URL,'_blank','noopener'));
+$('#bmBtn').addEventListener('click',()=>{ renderBmList(); $('#bmPanel').classList.add('open'); });
+$('#bmClose').addEventListener('click',()=>$('#bmPanel').classList.remove('open'));
+$('#resumeBtn').addEventListener('click',()=>{
+  const lr=loadLastRead(); if(!lr) return;
+  if(lr.volume===VOL){ scrollToPos(lr); }
+  else location.href='reader.html?vol='+lr.volume+'#p'+lr.page;
+});
 
 /* ---------- report ---------- */
 function openReport(page, quote){
@@ -273,3 +292,92 @@ $('#annoImport').addEventListener('change',e=>{
   r.onload=()=>{ try{ const add=JSON.parse(r.result); if(Array.isArray(add)){ annos=annos.concat(add.filter(x=>!annos.some(y=>y.ts===x.ts))); saveAnnos(annos); applyAnnos(); renderAnnoList(); } }catch(err){ alert('読み込みに失敗しました'); } };
   r.readAsText(f);
 });
+
+/* ---------- bookmarks ---------- */
+function findBookmark(page){ return bookmarks.find(b=>b.volume===VOL && b.page===page); }
+function toggleBookmark(page){
+  const ex=findBookmark(page);
+  if(ex){ bookmarks=bookmarks.filter(b=>b!==ex); }
+  else{
+    const pg=DATA.pages.find(p=>p.p===page);
+    const quoteSrc=(pg && ((pg.ja&&pg.ja[0])||(pg.ko&&pg.ko[0])))||'';
+    bookmarks.push({volume:VOL, lecture:lecOfPage[page]||null, page:page, paraIndex:0,
+                    quote:quoteSrc.slice(0,80), createdAt:Date.now()});
+  }
+  saveBookmarks(bookmarks); renderBookmarkStates(); renderBmList();
+}
+function renderBookmarkStates(){
+  main.querySelectorAll('[data-bookmark]').forEach(b=>{
+    const on=!!findBookmark(+b.dataset.bookmark);
+    b.textContent=on?'栞を外す':'栞を挟む';
+    b.classList.toggle('bm-on', on);
+  });
+}
+function renderBmList(){
+  const box=$('#bmList'); if(!box) return;
+  if(!bookmarks.length){ box.innerHTML='<p style="color:var(--muted);font-size:.85rem">まだ栞がありません。各ページの区切りにある「栞を挟む」ボタンで挟めます。</p>'; return; }
+  const sorted=bookmarks.slice().sort((a,b)=>a.volume-b.volume || a.page-b.page);
+  box.innerHTML=sorted.map(b=>
+    '<div class="bm-item"><span class="loc">第'+b.volume+'巻'+(b.lecture?(' 第'+b.lecture+'講'):'')+' p.'+b.page+'</span> '+
+    '<span class="dt">'+new Date(b.createdAt).toLocaleDateString('ja-JP')+'</span><br>'+
+    (b.quote?'<span class="q">「'+esc(b.quote.slice(0,60))+'…」</span><br>':'')+
+    '<button data-bmjump="'+b.createdAt+'">移動</button> <button data-bmdel="'+b.createdAt+'">削除</button></div>'
+  ).join('');
+  box.querySelectorAll('[data-bmjump]').forEach(btn=>btn.addEventListener('click',()=>{
+    const b=bookmarks.find(x=>x.createdAt===+btn.dataset.bmjump); if(!b) return;
+    $('#bmPanel').classList.remove('open');
+    if(b.volume===VOL){ location.hash='p'+b.page; jumpFromHash(); }
+    else location.href='reader.html?vol='+b.volume+'#p'+b.page;
+  }));
+  box.querySelectorAll('[data-bmdel]').forEach(btn=>btn.addEventListener('click',()=>{
+    bookmarks=bookmarks.filter(x=>x.createdAt!==+btn.dataset.bmdel);
+    saveBookmarks(bookmarks); renderBookmarkStates(); renderBmList();
+  }));
+}
+
+/* ---------- last read: auto-save & resume ---------- */
+function docTop(el){ return el.getBoundingClientRect().top + window.scrollY; }
+function currentPos(){
+  const y=window.scrollY + (toolbar.offsetHeight||100) + 40;
+  let page=null;
+  for(const m of main.querySelectorAll('.pagemark')){
+    if(docTop(m)<=y) page=+m.dataset.page; else break;
+  }
+  if(page==null) return null;
+  let idx=0;
+  for(const p of main.querySelectorAll('p.para[data-page="'+page+'"]')){
+    if(docTop(p)<=y+60) idx=+p.dataset.idx; else break;
+  }
+  return {volume:VOL, lecture:lecOfPage[page]||null, page:page, paraIndex:idx, ts:Date.now()};
+}
+let lrTimer=null;
+window.addEventListener('scroll',()=>{
+  if(!DATA || lrTimer) return;
+  lrTimer=setTimeout(()=>{ lrTimer=null; const pos=currentPos(); if(pos){ saveLastRead(pos); refreshResumeBtn(); } },400);
+},{passive:true});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden' && DATA){ const pos=currentPos(); if(pos) saveLastRead(pos); }
+});
+function scrollToPos(pos){
+  const el=main.querySelector('p.para[data-page="'+pos.page+'"][data-idx="'+pos.paraIndex+'"]')
+        || document.getElementById('p'+pos.page);
+  if(el) el.scrollIntoView({block:'start'});
+}
+function refreshResumeBtn(){
+  const b=$('#resumeBtn'); if(!b) return;
+  const lr=loadLastRead();
+  if(lr){ b.disabled=false; b.textContent='前回の続きから読む（第'+lr.volume+'巻 p.'+lr.page+'）'; }
+  else{ b.disabled=true; b.textContent='前回の続きから読む'; }
+}
+function maybeShowResumeBanner(){
+  if(location.hash) return;
+  const lr=loadLastRead();
+  if(!lr || lr.volume!==VOL || !lr.page || lr.page<=1) return;
+  const div=document.createElement('div');
+  div.className='resume-banner';
+  div.innerHTML='前回は 第'+VOL+'巻 '+(lr.lecture?('第'+lr.lecture+'講 '):'')+'p.'+lr.page+' まで読みました。 '+
+    '<button type="button" class="rb-go">続きから読む</button> <button type="button" class="rb-dismiss">閉じる</button>';
+  main.insertBefore(div, main.firstChild);
+  div.querySelector('.rb-go').addEventListener('click',()=>{ scrollToPos(lr); div.remove(); });
+  div.querySelector('.rb-dismiss').addEventListener('click',()=>div.remove());
+}

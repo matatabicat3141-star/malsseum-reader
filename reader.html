@@ -24,6 +24,8 @@
         <button data-fs="fs-s">小</button><button data-fs="fs-m" class="active">中</button><button data-fs="fs-l">大</button>
       </span>
       <button id="searchBtn">検索</button>
+      <button id="resumeBtn" disabled>前回の続きから読む</button>
+      <button id="bmBtn">栞一覧</button>
       <button id="annoBtn">ハイライト／メモ</button>
       <button id="reportBtn">誤りを報告</button>
       <button id="hideTb" style="margin-left:auto">▲ メニューを隠す</button>
@@ -45,6 +47,11 @@
   <button id="selMemo">メモを追加</button>
   <button id="selCancel">やめる</button>
 </div>
+
+<aside id="bmPanel">
+  <h2>栞一覧 <button id="bmClose" style="float:right">閉じる</button></h2>
+  <div id="bmList"></div>
+</aside>
 
 <aside id="annoPanel">
   <h2>ハイライト／メモ <button id="annoClose" style="float:right">閉じる</button></h2>

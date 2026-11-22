@@ -11,10 +11,22 @@
 <div class="home-wrap">
   <h1>文鮮明先生御言選集</h1>
   <div class="home-sub" id="summary">日韓対訳リーダー</div>
+  <a id="resumeHome" class="resume-home" href="#" style="display:none"></a>
   <input class="home-search" id="filter" type="search" placeholder="巻番号で絞り込み（例：119）">
   <div class="vol-grid" id="grid"></div>
 </div>
 <script>
+(function(){
+  try{
+    const lr=JSON.parse(localStorage.getItem('malsseum_last_read')||'null');
+    if(lr && lr.volume && lr.page){
+      const a=document.getElementById('resumeHome');
+      a.textContent='前回の続きから読む ― 第'+lr.volume+'巻 '+(lr.lecture?('第'+lr.lecture+'講 '):'')+'p.'+lr.page;
+      a.href='reader.html?vol='+lr.volume+(lr.lecture?('#lec'+lr.lecture+'-p'+lr.page):('#p'+lr.page));
+      a.style.display='block';
+    }
+  }catch(e){}
+})();
 fetch('data/index.json').then(r=>r.json()).then(idx=>{
   const vols=idx.volumes;
   const totalPages=vols.reduce((a,v)=>a+v.pages,0);
