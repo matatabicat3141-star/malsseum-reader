@@ -4,6 +4,7 @@ const qs=new URLSearchParams(location.search);
 const VOL=parseInt(qs.get('vol')||'119',10);
 const LS_KEY='malsseum_vol'+String(VOL).padStart(3,'0')+'_annotations';
 let DATA=null, lecOfPage={}; // page -> lecture no (running)
+let SECS=[], secOfPage={}, curSec=0; // sections: 0=front matter, 1..n = lectures
 
 const $=s=>document.querySelector(s);
 const main=$('#main');
@@ -29,7 +30,15 @@ fetch('data/vol'+String(VOL).padStart(3,'0')+'.json').then(r=>r.json()).then(d=>
   $('#volTitle').textContent='文鮮明先生御言選集 第'+VOL+'巻';
   let cur=null;
   for(const pg of d.pages){ if(pg.lec) cur=pg.lec; lecOfPage[pg.p]=cur; }
-  buildToc(); render(); applyAnnos(); jumpFromHash(); refreshResumeBtn(); maybeShowResumeBanner();
+  SECS=[{no:0,title:'巻頭（表紙・まえがき・目次）',start:d.pages[0].p}];
+  for(const l of d.lectures) SECS.push({no:l.no,title:l.title,koTitle:l.koTitle,start:l.page});
+  SECS.forEach((s,i)=>{ s.idx=i; s.end=(i+1<SECS.length?SECS[i+1].start-1:d.pages[d.pages.length-1].p); });
+  { let si=0; for(const pg of d.pages){ while(si+1<SECS.length && SECS[si+1].start<=pg.p) si++; secOfPage[pg.p]=si; } }
+  buildToc();
+  let initSec=0;
+  const m0=location.hash.match(/p(\d+)/);
+  if(m0 && secOfPage[+m0[1]]!=null) initSec=secOfPage[+m0[1]];
+  render(initSec); applyAnnos(); jumpFromHash(); refreshResumeBtn(); maybeShowResumeBanner();
 }).catch(()=>{ main.innerHTML='<p>データの読み込みに失敗しました。</p>'; });
 
 function buildToc(){
@@ -49,10 +58,31 @@ function buildToc(){
 
 function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
-function render(){
+function secLabel(s){ return s.no? ('第'+s.no+'講　'+s.title) : s.title; }
+function lecNavHtml(pos){
+  return '<div class="lec-nav '+pos+'">'+
+    '<button data-nav="-1"'+(curSec<=0?' disabled':'')+'>← 前の講へ</button>'+
+    '<span class="lec-nav-label">'+esc(secLabel(SECS[curSec]))+'</span>'+
+    '<button data-nav="1"'+(curSec>=SECS.length-1?' disabled':'')+'>次の講へ →</button></div>';
+}
+function updateTocCur(){
+  document.querySelectorAll('#tocList a').forEach((a,i)=>a.classList.toggle('cur', i===curSec));
+}
+function gotoSection(idx){
+  if(idx<0||idx>=SECS.length) return;
+  if(idx===curSec){ window.scrollTo({top:0}); return; }
+  render(idx); applyAnnos();
+  const s=SECS[idx];
+  history.replaceState(null,'', s.no? ('#lec'+s.no+'-p'+s.start) : '#p'+s.start);
+  window.scrollTo({top:0});
+}
+function render(secIdx){
+  curSec=Math.max(0,Math.min(secIdx||0,SECS.length-1));
+  const sec=SECS[curSec];
   const lecMap={}; DATA.lectures.forEach(l=>lecMap[l.page]=l);
-  let html='';
+  let html=lecNavHtml('top');
   for(const pg of DATA.pages){
+    if(pg.p<sec.start||pg.p>sec.end) continue;
     if(lecMap[pg.p]) html+='<h2 class="lec-title" id="lec'+lecMap[pg.p].no+'">第'+lecMap[pg.p].no+'講　'+esc(lecMap[pg.p].title)+(lecMap[pg.p].koTitle?'<span class="ko-title">'+esc(lecMap[pg.p].koTitle)+'</span>':'')+'</h2>';
     html+='<div class="pagemark" id="p'+pg.p+'" data-page="'+pg.p+'"><span>p.'+pg.p+'</span>'+
       '<button data-report="'+pg.p+'">誤りを報告</button>'+
@@ -66,21 +96,42 @@ function render(){
     if(pg.note) html+='<div class="note">'+esc(pg.note)+'</div>';
     html+='<div class="page-memos" data-memos="'+pg.p+'"></div>';
   }
+  html+=lecNavHtml('bottom');
   main.innerHTML=html;
   main.querySelectorAll('[data-report]').forEach(b=>b.addEventListener('click',()=>openReport(+b.dataset.report,'')));
   main.querySelectorAll('[data-pagememo]').forEach(b=>b.addEventListener('click',()=>openMemoEditor({page:+b.dataset.pagememo,pageMemo:true})));
   main.querySelectorAll('[data-bookmark]').forEach(b=>b.addEventListener('click',()=>toggleBookmark(+b.dataset.bookmark)));
+  main.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>gotoSection(curSec+ +b.dataset.nav)));
   renderBookmarkStates();
   renderPageMemos();
+  updateTocCur();
 }
 
+function pageFromHash(){
+  const m=location.hash.match(/lec(\d+)-p(\d+)|p(\d+)|lec(\d+)/);
+  if(!m) return null;
+  if(m[2]||m[3]) return +(m[2]||m[3]);
+  const l=DATA.lectures.find(x=>x.no===+m[4]);
+  return l?l.page:null;
+}
+function showPage(page){
+  const s=secOfPage[page];
+  if(s==null) return null;
+  if(s!==curSec){ render(s); applyAnnos(); }
+  return document.getElementById('p'+page);
+}
 function jumpFromHash(){
-  const m=location.hash.match(/lec(\d+)-p(\d+)|p(\d+)/);
   let target=null;
-  if(m){ target=document.getElementById('p'+(m[2]||m[3])); }
-  else if(location.hash==='#top'){ target=document.getElementById('p1'); }
+  if(location.hash==='#top'){
+    if(curSec!==0){ render(0); applyAnnos(); }
+    target=document.getElementById('p'+SECS[0].start);
+  }else{
+    const p=pageFromHash();
+    if(p!=null) target=showPage(p);
+  }
   if(target) target.scrollIntoView();
 }
+window.addEventListener('hashchange',()=>{ if(DATA) jumpFromHash(); });
 
 /* ---------- toolbar ---------- */
 const toolbar=$('#toolbar');
@@ -359,6 +410,7 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden' && DATA){ const pos=currentPos(); if(pos) saveLastRead(pos); }
 });
 function scrollToPos(pos){
+  showPage(pos.page);
   const el=main.querySelector('p.para[data-page="'+pos.page+'"][data-idx="'+pos.paraIndex+'"]')
         || document.getElementById('p'+pos.page);
   if(el) el.scrollIntoView({block:'start'});
