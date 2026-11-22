@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>御言選集リーダー</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="toolbar" id="toolbar">
+  <div class="tb-inner">
+    <div class="tb-row">
+      <a href="index.html" style="text-decoration:none">← 巻一覧</a>
+      <span class="tb-title" id="volTitle">読み込み中…</span>
+      <button id="tocToggle">講一覧</button>
+      <span class="seg" id="modeSeg">
+        <button data-mode="both" class="active">対訳</button><button data-mode="ja">日本語のみ</button><button data-mode="ko">韓国語のみ</button>
+      </span>
+    </div>
+    <div class="tb-row small">
+      <label><input type="checkbox" id="noteToggle"> 注記</label>
+      <span class="seg" id="fsSeg">
+        <button data-fs="fs-s">小</button><button data-fs="fs-m" class="active">中</button><button data-fs="fs-l">大</button>
+      </span>
+      <button id="searchBtn">検索</button>
+      <button id="annoBtn">ハイライト／メモ</button>
+      <button id="reportBtn">誤りを報告</button>
+      <button id="hideTb" style="margin-left:auto">▲ メニューを隠す</button>
+    </div>
+    <div id="searchPanel">
+      <input id="searchInput" type="search" placeholder="この巻の中を検索（日本語・韓国語）">
+      <div id="searchResults"></div>
+    </div>
+  </div>
+</header>
+<button id="showTab">▼ メニュー</button>
+<div class="layout">
+  <nav class="toc" id="toc"><h2>講一覧</h2><div id="tocList"></div></nav>
+  <main id="main" class="fs-m"></main>
+</div>
+
+<div id="selPopup">
+  <button id="selHighlight">ハイライト</button>
+  <button id="selMemo">メモを追加</button>
+  <button id="selCancel">やめる</button>
+</div>
+
+<aside id="annoPanel">
+  <h2>ハイライト／メモ <button id="annoClose" style="float:right">閉じる</button></h2>
+  <div style="display:flex;gap:6px;margin-bottom:8px">
+    <button id="annoExport">書き出し（JSON）</button>
+    <label style="flex:1"><button id="annoImportBtn" style="width:100%">読み込み</button>
+    <input type="file" id="annoImport" accept=".json" style="display:none"></label>
+  </div>
+  <div id="annoList"></div>
+</aside>
+
+<div id="memoModal">
+  <div class="box">
+    <div id="memoLoc" style="font-size:.8rem;color:var(--muted);margin-bottom:6px"></div>
+    <textarea id="memoText" placeholder="メモを入力"></textarea>
+    <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+      <button id="memoDelete" style="display:none">削除</button>
+      <button id="memoCancel">キャンセル</button>
+      <button id="memoSave" class="active" style="background:var(--accent);color:#fff">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

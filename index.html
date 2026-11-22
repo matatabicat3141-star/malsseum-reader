@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>文鮮明先生御言選集 日韓対訳リーダー</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="home-wrap">
+  <h1>文鮮明先生御言選集</h1>
+  <div class="home-sub" id="summary">日韓対訳リーダー</div>
+  <input class="home-search" id="filter" type="search" placeholder="巻番号で絞り込み（例：119）">
+  <div class="vol-grid" id="grid"></div>
+</div>
+<script>
+fetch('data/index.json').then(r=>r.json()).then(idx=>{
+  const vols=idx.volumes;
+  const totalPages=vols.reduce((a,v)=>a+v.pages,0);
+  document.getElementById('summary').textContent=
+    `日韓対訳リーダー ― 全${vols.length}巻・${totalPages.toLocaleString()}ページ`;
+  const grid=document.getElementById('grid');
+  function render(list){
+    grid.innerHTML=list.map(v=>
+      `<a class="vol-card" href="reader.html?vol=${v.volume}">
+         <div class="v">第${v.volume}巻</div>
+         <div class="m">${v.pages}ページ／${v.lectures.length}講<br>日本語 ${v.jaChars.toLocaleString()}字</div>
+       </a>`).join('');
+  }
+  render(vols);
+  document.getElementById('filter').addEventListener('input',e=>{
+    const q=e.target.value.trim();
+    render(q?vols.filter(v=>String(v.volume).includes(q)):vols);
+  });
+}).catch(()=>{document.getElementById('summary').textContent='データの読み込みに失敗しました。';});
+</script>
+</body>
+</html>
