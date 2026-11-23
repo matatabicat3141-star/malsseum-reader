@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>文鮮明先生御言選集 日韓対訳リーダー</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261123-2">
 </head>
 <body>
 <div class="home-wrap">
@@ -27,7 +27,7 @@
     }
   }catch(e){}
 })();
-fetch('data/index.json').then(r=>r.json()).then(idx=>{
+fetch('data/index.json?v=20261123-2').then(r=>r.json()).then(idx=>{
   const vols=idx.volumes;
   const totalPages=vols.reduce((a,v)=>a+v.pages,0);
   document.getElementById('summary').textContent=

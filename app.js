@@ -1,5 +1,6 @@
 'use strict';
 const FORM_URL='https://docs.google.com/forms/d/e/1FAIpQLSdr9lYfR73KZ8yBTfexzUzvc__kUWepFENN38CLHFY5xfSJ5g/viewform';
+const ASSET_V='20261123-2'; // cache-busting version: bump together with the ?v= in reader.html / index.html
 const qs=new URLSearchParams(location.search);
 const VOL=parseInt(qs.get('vol')||'119',10);
 const LS_KEY='malsseum_vol'+String(VOL).padStart(3,'0')+'_annotations';
@@ -47,7 +48,7 @@ function loadLastRead(){ try{return JSON.parse(localStorage.getItem(LR_KEY))||nu
 function saveLastRead(p){ try{localStorage.setItem(LR_KEY, JSON.stringify(p));}catch(e){} }
 
 /* ---------- data ---------- */
-fetch('data/vol'+String(VOL).padStart(3,'0')+'.json').then(r=>r.json()).then(d=>{
+fetch('data/vol'+String(VOL).padStart(3,'0')+'.json?v='+ASSET_V).then(r=>r.json()).then(d=>{
   DATA=d;
   document.title='第'+VOL+'巻 ― 御言選集リーダー';
   $('#volTitle').textContent='文鮮明先生御言選集 第'+VOL+'巻';
