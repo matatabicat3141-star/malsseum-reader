@@ -4,7 +4,30 @@ const qs=new URLSearchParams(location.search);
 const VOL=parseInt(qs.get('vol')||'119',10);
 const LS_KEY='malsseum_vol'+String(VOL).padStart(3,'0')+'_annotations';
 let DATA=null, lecOfPage={}; // page -> lecture no (running)
-let SECS=[], secOfPage={}, curSec=0; // sections: 0=front matter, 1..n = lectures
+let SECS=[], secOfPage={}, curSec=0; // sections: front matter (only when it has body text) + lectures
+let FRONT_HIDDEN=false, FIRST_LEC_PAGE=null;
+
+/* ---------- front matter: hide the front section when it has no body text ---------- */
+function normTxt(t){ return String(t).replace(/[\s　]+/g,''); }
+function isFrontMatterPage(pg){
+  const paras=(pg.ja||[]).concat(pg.ko||[]).map(normTxt).filter(s=>s.length);
+  if(!paras.length) return true; // no text at all (blank / page-number only)
+  if(paras.some(s=>/^(目次|목차|차례)/.test(s))) return true; // table of contents page
+  const joined=paras.join('');
+  const dots=(joined.match(/[·…‥]/g)||[]).length;
+  if(joined.length>=40 && dots/joined.length>=0.2) return true; // TOC continuation (dot leaders)
+  if(joined.length<=130) return true; // cover, preface heading+signature, blank/extraction markers only
+  return false;
+}
+function frontHasBody(d){
+  if(!d.lectures || !d.lectures.length) return true;
+  const first=d.lectures[0].page;
+  for(const pg of d.pages){
+    if(pg.p>=first) break;
+    if(!isFrontMatterPage(pg)) return true;
+  }
+  return false;
+}
 
 const $=s=>document.querySelector(s);
 const main=$('#main');
@@ -30,7 +53,10 @@ fetch('data/vol'+String(VOL).padStart(3,'0')+'.json').then(r=>r.json()).then(d=>
   $('#volTitle').textContent='文鮮明先生御言選集 第'+VOL+'巻';
   let cur=null;
   for(const pg of d.pages){ if(pg.lec) cur=pg.lec; lecOfPage[pg.p]=cur; }
-  SECS=[{no:0,title:'巻頭（表紙・まえがき・目次）',start:d.pages[0].p}];
+  FRONT_HIDDEN=!frontHasBody(d);
+  FIRST_LEC_PAGE=d.lectures.length?d.lectures[0].page:null;
+  SECS=[];
+  if(!FRONT_HIDDEN) SECS.push({no:0,title:'巻頭（表紙・まえがき・目次）',start:d.pages[0].p});
   for(const l of d.lectures) SECS.push({no:l.no,title:l.title,koTitle:l.koTitle,start:l.page});
   SECS.forEach((s,i)=>{ s.idx=i; s.end=(i+1<SECS.length?SECS[i+1].start-1:d.pages[d.pages.length-1].p); });
   { let si=0; for(const pg of d.pages){ while(si+1<SECS.length && SECS[si+1].start<=pg.p) si++; secOfPage[pg.p]=si; } }
@@ -43,7 +69,8 @@ fetch('data/vol'+String(VOL).padStart(3,'0')+'.json').then(r=>r.json()).then(d=>
 
 function buildToc(){
   const el=$('#tocList');
-  let html='<a href="#top" data-jump="9">巻頭（表紙・まえがき・目次）</a>';
+  let html='';
+  if(!FRONT_HIDDEN) html+='<a href="#top" data-jump="'+SECS[0].start+'">巻頭（表紙・まえがき・目次）</a>';
   for(const l of DATA.lectures){
     html+='<a href="#lec'+l.no+'-p'+l.page+'" data-jump="'+l.page+'">第'+l.no+'講 '+esc(l.title)+(l.koTitle?' <span class="ko-title">'+esc(l.koTitle)+'</span>':'')+' <span class="pg">p.'+l.page+'</span></a>';
   }
@@ -118,7 +145,8 @@ function showPage(page){
   const s=secOfPage[page];
   if(s==null) return null;
   if(s!==curSec){ render(s); applyAnnos(); }
-  return document.getElementById('p'+page);
+  // page not rendered (e.g. hidden front matter): fall back to the section start
+  return document.getElementById('p'+page) || document.getElementById('p'+SECS[s].start);
 }
 function jumpFromHash(){
   let target=null;
@@ -183,6 +211,7 @@ function doSearch(q){
   if(!q||!DATA){ box.innerHTML=''; return; }
   const hits=[];
   for(const pg of DATA.pages){
+    if(FRONT_HIDDEN && FIRST_LEC_PAGE!=null && pg.p<FIRST_LEC_PAGE) continue; // hidden front matter is not searchable
     for(const lang of ['ja','ko']){
       pg[lang].forEach((t,i)=>{ if(t.includes(q)) hits.push({page:pg.p,lang,idx:i,text:t}); });
     }
@@ -410,9 +439,9 @@ document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden' && DATA){ const pos=currentPos(); if(pos) saveLastRead(pos); }
 });
 function scrollToPos(pos){
-  showPage(pos.page);
+  const mark=showPage(pos.page);
   const el=main.querySelector('p.para[data-page="'+pos.page+'"][data-idx="'+pos.paraIndex+'"]')
-        || document.getElementById('p'+pos.page);
+        || document.getElementById('p'+pos.page) || mark;
   if(el) el.scrollIntoView({block:'start'});
 }
 function refreshResumeBtn(){
